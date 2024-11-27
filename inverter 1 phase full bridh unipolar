@@ -1,0 +1,94 @@
+#include <avr/io.h>
+#include <util/delay.h>
+#include <avr/interrupt.h>
+#include <math.h>
+
+#define FREQ_PIN_1 9  // Pin 9 (OC1A)
+#define FREQ_PIN_2 10 // Pin 10 (OC1B)
+//volatile unsigned long micro = 0;
+//uint64_t o_time1 = 0;
+//uint64_t n_time1 = 0;
+
+const int freq = 50;        // ความถี่ของ sine wave (50Hz)
+const int resolution = 256;
+
+uint8_t sineTable1[256];
+uint8_t sineTable2[256];
+
+int currentIndex = 0;
+
+
+/*ISR (TIMER0_COMPA_vect) {
+	micro+=1;  
+}*/
+
+
+void generateSineTable1() {
+	for (int i = 0; i < resolution; i++) {
+		sineTable1[i] = (uint8_t)(127.5 + 127.5 * sin(2 * M_PI * i / resolution)); // ค่าระหว่าง 0-255
+	}
+}
+
+
+void generateSineTable2() {
+	for (int i = 0; i < resolution; i++) {
+		sineTable2[i] = (uint8_t)(127.5 + 127.5 * sin((2 * M_PI * i / resolution)+M_PI)); // ค่าระหว่าง 0-255
+	}
+}
+
+
+int main(void)
+{
+	 //TIMER0
+	 /* TCCR0A|=(1<<WGM01);
+	  TCCR0B=(1<<CS01);//prescale 8
+	  TCNT0=0x00; //reset counter2
+	  TIMSK0=(1<<OCIE0A); // enable timer interrupt (output compare match A)
+	  TIFR0=(1<<OCF0A); //clear flag
+	  OCR0A=1;
+	  sei();*/
+	  
+	  DDRB |= (1 << PB1);  // Pin 9 (OC1A) as output
+	  DDRB |= (1 << PB2);  // Pin 10 (OC1B) as output
+	  DDRB |= (1 << PB3);  // Pin 11
+	  DDRD |= (1 << PD3);  // Pin 3 
+	  
+	  //TIMER 1 MODE 14
+	  TCCR1A = (1 << COM1A1) | (0 << COM1A0) | (1 << COM1B1) | (1 << COM1B0) | (1 << WGM11);
+	  TCCR1B = (1 << WGM13) | (1 << WGM12) | (1 << CS11);
+	  ICR1 = 255;
+	  
+	  
+	  //TIMER 2 MODE 7
+	  TCCR2A = (1 << COM2A1) | (0 << COM2A0) | (1 << COM2B1) | (1 << COM2B0) | (1 << WGM20) | (1 << WGM21) ;
+	  TCCR2B = (1 << CS21);
+
+	  
+	  
+	  //o_time1=micro;
+   	  //n_time1=micro;
+		 
+	   generateSineTable1();
+	   generateSineTable2();
+	  
+	  
+while (1) {
+	//n_time1=micro;
+		OCR2A = sineTable2[currentIndex];
+		OCR2B = sineTable2[currentIndex];//invert D3
+
+		OCR1A = sineTable1[currentIndex];  
+		OCR1B = sineTable1[currentIndex];//invert D10
+		
+		currentIndex++; // ไปยังค่าถัดไปใน sine table
+		
+		if (currentIndex >= resolution) {
+			currentIndex = 0;
+			}
+		_delay_us(100);
+	}
+}
+
+
+
+
